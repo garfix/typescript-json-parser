@@ -1,6 +1,12 @@
-type Token = { ["type"]: string; ["value"]: string; ["line"]: number; ["col"]: number };
+type Token = {
+    ["type"]: string;
+    ["value"]: string;
+    ["line"]: number;
+    ["col"]: number;
+};
 
 type allScalarTypes = string | number | boolean | null;
+type allTypes = string | number | boolean | null | allScalarTypes[];
 
 interface TokenRule {
     type: string;
@@ -8,11 +14,7 @@ interface TokenRule {
 }
 
 export function createRegEx(rules: TokenRule[]) {
-    const regex = new RegExp(rules.map(({ type, pattern }) => `(?<${type}>${pattern.source})`).join("|"), "y");
-
-    console.log(rules.map(({ type, pattern }) => `(?<${type}>${pattern.source})`).join("|"));
-
-    return regex;
+    return new RegExp(rules.map(({ type, pattern }) => `(?<${type}>${pattern.source})`).join("|"), "y");
 }
 
 function tokenize(input: string, regex: RegExp): Token[] {
@@ -61,7 +63,7 @@ const regex = createRegEx([
 ]);
 
 export function parseJson(json_string: string) {
-    const tokens = tokenize(json_string.trim(), regex);
+    const tokens = tokenize(json_string.trimEnd(), regex);
 
     const [value, newPos] = parseValue(tokens, 0);
     if (newPos < tokens.length) {
@@ -71,7 +73,7 @@ export function parseJson(json_string: string) {
     return value;
 }
 
-function parseValue(tokens: Token[], pos: number): string | number | boolean | null | allScalarTypes[] {
+function parseValue(tokens: Token[], pos: number): [allTypes, number] {
     const [token, newPos] = parseToken(tokens, pos);
     if (token.type === "TRUE") {
         return [true, newPos];
@@ -86,7 +88,7 @@ function parseValue(tokens: Token[], pos: number): string | number | boolean | n
     } else {
         const [array, newPos] = parseArray(tokens, pos);
         if (newPos !== null) {
-            return array;
+            return [array, pos];
         }
     }
 
@@ -95,7 +97,6 @@ function parseValue(tokens: Token[], pos: number): string | number | boolean | n
 
 function parseArray(tokens: Token[], pos: number): allScalarTypes[] {
     const array = [];
-    let value;
     let [token, newPos] = parseToken(tokens, pos);
     if (token.type === "SQUARED_OPEN") {
         pos = newPos;
@@ -115,6 +116,7 @@ function parseArray(tokens: Token[], pos: number): allScalarTypes[] {
                 }
             }
 
+            let value;
             [value, newPos] = parseValue(tokens, pos);
             if (value !== null) {
                 pos = newPos;
@@ -129,10 +131,13 @@ function parseArray(tokens: Token[], pos: number): allScalarTypes[] {
 }
 
 function parseToken(tokens: Token[], pos: number): [Token, number] {
+    // out of tokens?
     if (pos >= tokens.length) {
+        // return the NONE token for simpler result checking
         return [{ type: "NONE", value: "", line: -1, col: -1 }, pos];
     }
 
+    // always just skip whitespace
     const token = tokens[pos];
     if (token.type === "WHITESPACE") {
         return parseToken(tokens, pos + 1);
