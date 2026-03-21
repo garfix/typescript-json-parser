@@ -20,10 +20,10 @@ export function createRegEx(rules: TokenRule[]) {
 
 function tokenize(input: string, regex: RegExp): Token[] {
     const tokens: Token[] = [];
-    regex.lastIndex = 0;
     let line = 1;
     let lineStart = 0;
 
+    regex.lastIndex = 0;
     while (regex.lastIndex < input.length) {
         const pos = regex.lastIndex;
         const match = regex.exec(input);
@@ -65,71 +65,77 @@ const regex = createRegEx([
 export function parseJson(json_string: string) {
     const tokens = tokenize(json_string.trimEnd(), regex);
 
-    const [value, newPos] = parseValue(tokens, 0);
-    if (newPos < tokens.length) {
-        const token = tokens[newPos];
-        throw new SyntaxError(`Unexpected character on line ${token.line} on position ${token.col}`);
+    const [value, newPos, ok] = parseValue(tokens, 0);
+    if (!ok) {
+        if (newPos < tokens.length) {
+            const token = tokens[newPos];
+            throw new SyntaxError(`Unexpected character at ${token.line}:${token.col}`);
+        }
     }
     return value;
 }
 
-function parseValue(tokens: Token[], pos: number): [anyType, number] {
+function parseValue(tokens: Token[], pos: number): [anyType, number, boolean] {
+    let value: anyType;
+    let ok;
+
     let [token, newPos] = parseToken(tokens, pos);
     if (token.type === "TRUE") {
-        return [true, newPos];
+        return [true, newPos, true];
     } else if (token.type === "FALSE") {
-        return [false, newPos];
+        return [false, newPos, true];
     } else if (token.type === "NULL") {
-        return [null, newPos];
+        return [null, newPos, true];
     } else if (token.type === "STRING") {
-        return [getStringValue(token.value), newPos];
+        return [getStringValue(token.value), newPos, true];
     } else if (token.type === "NUMBER") {
-        return [parseFloat(token.value), newPos];
+        return [parseFloat(token.value), newPos, true];
     } else {
-        let array: anyType[] | null;
-        [array, newPos] = parseArray(tokens, pos);
-        if (array !== null) {
-            return [array, newPos];
+        [value, newPos, ok] = parseArray(tokens, pos);
+        if (ok) {
+            return [value, newPos, true];
         }
-
-        let object: Record<string, anyType> | null;
-        [object, newPos] = parseObject(tokens, pos);
-        if (object !== null) {
-            return [object, newPos];
+        [value, newPos, ok] = parseObject(tokens, pos);
+        if (ok) {
+            return [value, newPos, true];
         }
     }
 
-    return [null, pos];
+    return [null, pos, false];
 }
 
-function parseObject(tokens: Token[], pos: number): [Record<string, anyType> | null, number] {
-    let [token, newPos] = parseToken(tokens, pos);
-    if (token.type !== "CURLY_OPEN") {
-        return [null, pos];
-    }
-    pos = newPos;
+function parseObject(tokens: Token[], pos: number): [Record<string, anyType>, number, boolean] {
+    let value: anyType;
+    let ok = false;
 
     const object: Record<string, anyType> = {};
 
-    while (true) {
-        [token, newPos] = parseToken(tokens, pos);
+    // {
+    let [token, newPos] = parseToken(tokens, pos);
+    if (token.type !== "CURLY_OPEN") {
+        return [object, pos, false];
+    }
+    pos = newPos;
 
+    while (true) {
+        // }
+        [token, newPos] = parseToken(tokens, pos);
         if (token.type === "CURLY_CLOSE") {
-            return [object, newPos];
+            return [object, newPos, true];
         }
 
-        // comma between entries
-        if (Object.keys(object).length > 0) {
+        // comma between entries (uses same token)
+        else if (Object.keys(object).length > 0) {
             if (token.type !== "COMMA") {
-                return [null, pos];
+                return [object, pos, false];
             }
             pos = newPos;
-            [token, newPos] = parseToken(tokens, pos);
         }
 
         // key must be a string
+        [token, newPos] = parseToken(tokens, pos);
         if (token.type !== "STRING") {
-            return [null, pos];
+            return [object, pos, false];
         }
         const key: string = getStringValue(token.value);
         pos = newPos;
@@ -137,51 +143,53 @@ function parseObject(tokens: Token[], pos: number): [Record<string, anyType> | n
         // colon
         [token, newPos] = parseToken(tokens, pos);
         if (token.type !== "COLON") {
-            return [null, pos];
+            return [object, pos, false];
         }
         pos = newPos;
 
         // value
-        let value: anyType;
-        [value, newPos] = parseValue(tokens, pos);
-        pos = newPos;
-
+        [value, newPos, ok] = parseValue(tokens, pos);
+        if (!ok) {
+            return [object, pos, false];
+        }
         object[key] = value;
+        pos = newPos;
     }
 }
 
-function parseArray(tokens: Token[], pos: number): [anyType[] | null, number] {
+function parseArray(tokens: Token[], pos: number): [anyType[], number, boolean] {
+    const array: anyType[] = [];
+    let value: anyType;
+    let ok;
+
+    // [
     let [token, newPos] = parseToken(tokens, pos);
     if (token.type !== "SQUARED_OPEN") {
-        return [null, pos];
+        return [array, pos, false];
     }
     pos = newPos;
 
-    const array: anyType[] = [];
-
     while (true) {
+        // ]
         [token, newPos] = parseToken(tokens, pos);
-
         if (token.type === "SQUARED_CLOSE") {
-            return [array, newPos];
+            return [array, newPos, true];
         }
 
-        // comma check happens after first element
+        // comma check happens after first element (uses same token)
         if (array.length > 0) {
             if (token.type !== "COMMA") {
-                return [null, pos];
+                return [array, pos, false];
             }
             pos = newPos;
         }
 
-        let value: anyType;
-        [value, newPos] = parseValue(tokens, pos);
-        if (value !== null) {
-            pos = newPos;
-            array.push(value);
-        } else {
-            return [null, pos];
+        [value, newPos, ok] = parseValue(tokens, pos);
+        if (!ok) {
+            return [array, pos, false];
         }
+        array.push(value);
+        pos = newPos;
     }
 }
 
@@ -189,11 +197,11 @@ function getStringValue(string: string) {
     return string.slice(1, -1).replaceAll('\\"', '"');
 }
 
-function parseToken(tokens: Token[], pos: number): [Token, number] {
+function parseToken(tokens: Token[], pos: number): [Token, number, boolean] {
     // out of tokens?
     if (pos >= tokens.length) {
-        // return the NONE token for simpler result checking
-        return [{ type: "NONE", value: "", line: -1, col: -1 }, pos];
+        // return a dummy token
+        return [{ type: "", value: "", line: 0, col: 0 }, pos, false];
     }
 
     // always just skip whitespace
@@ -202,5 +210,5 @@ function parseToken(tokens: Token[], pos: number): [Token, number] {
         return parseToken(tokens, pos + 1);
     }
 
-    return [token, pos + 1];
+    return [token, pos + 1, true];
 }

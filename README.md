@@ -26,3 +26,9 @@ Parsing
 - Check for extra whitespace at a single location. Checking it everywhere it can occur makes is easy to forget a spot
 - Consider trailing whitespace
 - Write unit tests before and while developing the parser, to ensure it keeps working as expected
+- Use early returns
+
+## Todo
+
+- create good error messages
+- describe the main way of doing things, and stick to it
