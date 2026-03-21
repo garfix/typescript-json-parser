@@ -5,8 +5,9 @@ type Token = {
     ["col"]: number;
 };
 
-type allScalarTypes = string | number | boolean | null;
-type allTypes = string | number | boolean | null | allScalarTypes[];
+type anyScalarType = string | number | boolean | null;
+type anyType = anyScalarType | anyType[] | anyObject;
+interface anyObject extends Record<string, anyType> {}
 
 interface TokenRule {
     type: string;
@@ -35,11 +36,10 @@ function tokenize(input: string, regex: RegExp): Token[] {
 
         tokens.push({ type, value: match[0], line, col: pos - lineStart + 1 });
 
-        // advance line/col tracking over the matched value
-        for (const ch of match[0]) {
-            if (ch === "\n") {
+        for (let i = 0; i < match[0].length; i++) {
+            if (match[0][i] === "\n") {
                 line++;
-                lineStart = regex.lastIndex - (match[0].length - (match[0].indexOf(ch) + 1));
+                lineStart = pos + i + 1;
             }
         }
     }
@@ -73,8 +73,8 @@ export function parseJson(json_string: string) {
     return value;
 }
 
-function parseValue(tokens: Token[], pos: number): [allTypes, number] {
-    const [token, newPos] = parseToken(tokens, pos);
+function parseValue(tokens: Token[], pos: number): [anyType, number] {
+    let [token, newPos] = parseToken(tokens, pos);
     if (token.type === "TRUE") {
         return [true, newPos];
     } else if (token.type === "FALSE") {
@@ -82,52 +82,108 @@ function parseValue(tokens: Token[], pos: number): [allTypes, number] {
     } else if (token.type === "NULL") {
         return [null, newPos];
     } else if (token.type === "STRING") {
-        return [token.value, newPos];
+        return [token.value.substring(1, -1).replace('\\"', '"'), newPos];
     } else if (token.type === "NUMBER") {
         return [parseFloat(token.value), newPos];
     } else {
-        const [array, newPos] = parseArray(tokens, pos);
-        if (newPos !== null) {
-            return [array, pos];
+        let array: anyType[] | null;
+        [array, newPos] = parseArray(tokens, pos);
+        if (array !== null) {
+            return [array, newPos];
+        }
+
+        let object: Record<string, anyType> | null;
+        [object, newPos] = parseObject(tokens, pos);
+        if (object !== null) {
+            return [object, newPos];
         }
     }
 
     return [null, pos];
 }
 
-function parseArray(tokens: Token[], pos: number): allScalarTypes[] {
-    const array = [];
+function parseObject(tokens: Token[], pos: number): [Record<string, anyType> | null, number] {
     let [token, newPos] = parseToken(tokens, pos);
-    if (token.type === "SQUARED_OPEN") {
-        pos = newPos;
-        while (true) {
-            [token, newPos] = parseToken(tokens, pos);
-            if (token.type === "SQUARED_CLOSE") {
-                pos = newPos;
-                break;
-            }
+    if (token.type !== "CURLY_OPEN") {
+        return [null, pos];
+    }
+    pos = newPos;
 
-            if (array.length > 0) {
-                [token, newPos] = parseToken(tokens, pos);
-                if (token.type === "COMMA") {
-                    pos = newPos;
-                } else {
-                    return [null, pos];
-                }
-            }
+    const object: Record<string, anyType> = {};
 
-            let value;
-            [value, newPos] = parseValue(tokens, pos);
-            if (value !== null) {
-                pos = newPos;
-                array.push(value);
-            } else {
+    while (true) {
+        [token, newPos] = parseToken(tokens, pos);
+
+        if (token.type === "CURLY_CLOSE") {
+            return [object, newPos];
+        }
+
+        // comma between entries
+        if (Object.keys(object).length > 0) {
+            if (token.type !== "COMMA") {
                 return [null, pos];
             }
+            pos = newPos;
+            [token, newPos] = parseToken(tokens, pos);
+        }
+
+        // key must be a string
+        if (token.type !== "STRING") {
+            return [null, pos];
+        }
+        const key: string = JSON.parse(token.value);
+        pos = newPos;
+
+        // colon
+        [token, newPos] = parseToken(tokens, pos);
+        if (token.type !== "COLON") {
+            return [null, pos];
+        }
+        pos = newPos;
+
+        // value
+        let value: anyType;
+        [value, newPos] = parseValue(tokens, pos);
+        pos = newPos;
+
+        object[key] = value;
+    }
+}
+
+function parseArray(tokens: Token[], pos: number): [anyType[] | null, number] {
+    let [token, newPos] = parseToken(tokens, pos);
+    if (token.type !== "SQUARED_OPEN") {
+        return [null, pos];
+    }
+    pos = newPos;
+
+    const array: anyType[] = [];
+
+    while (true) {
+        [token, newPos] = parseToken(tokens, pos);
+
+        if (token.type === "SQUARED_CLOSE") {
+            // FIX: return the populated array, not null
+            return [array, newPos];
+        }
+
+        // comma check happens after first element
+        if (array.length > 0) {
+            if (token.type !== "COMMA") {
+                return [null, pos];
+            }
+            pos = newPos;
+        }
+
+        let value: anyType;
+        [value, newPos] = parseValue(tokens, pos);
+        if (value !== null) {
+            pos = newPos;
+            array.push(value);
+        } else {
+            return [null, pos];
         }
     }
-
-    return [null, pos];
 }
 
 function parseToken(tokens: Token[], pos: number): [Token, number] {

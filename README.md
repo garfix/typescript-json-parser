@@ -8,11 +8,13 @@ Install `tsx`
 
     npm install -g tsx
 
-Compile and run the file
+Compile and run the demo file
 
-    tsx json_parser.ts
+    tsx demo.ts
 
 ## Considerations
+
+For a visual display of the structure of JSON see Douglas Crockford's [website on JSON](https://www.json.org/)
 
 Tokenization
 
