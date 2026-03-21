@@ -82,7 +82,7 @@ function parseValue(tokens: Token[], pos: number): [anyType, number] {
     } else if (token.type === "NULL") {
         return [null, newPos];
     } else if (token.type === "STRING") {
-        return [token.value.substring(1, -1).replace('\\"', '"'), newPos];
+        return [getStringValue(token.value), newPos];
     } else if (token.type === "NUMBER") {
         return [parseFloat(token.value), newPos];
     } else {
@@ -131,7 +131,7 @@ function parseObject(tokens: Token[], pos: number): [Record<string, anyType> | n
         if (token.type !== "STRING") {
             return [null, pos];
         }
-        const key: string = JSON.parse(token.value);
+        const key: string = getStringValue(token.value);
         pos = newPos;
 
         // colon
@@ -163,7 +163,6 @@ function parseArray(tokens: Token[], pos: number): [anyType[] | null, number] {
         [token, newPos] = parseToken(tokens, pos);
 
         if (token.type === "SQUARED_CLOSE") {
-            // FIX: return the populated array, not null
             return [array, newPos];
         }
 
@@ -184,6 +183,10 @@ function parseArray(tokens: Token[], pos: number): [anyType[] | null, number] {
             return [null, pos];
         }
     }
+}
+
+function getStringValue(string: string) {
+    return string.slice(1, -1).replaceAll('\\"', '"');
 }
 
 function parseToken(tokens: Token[], pos: number): [Token, number] {

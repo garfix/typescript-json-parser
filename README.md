@@ -8,9 +8,9 @@ Install `tsx`
 
     npm install -g tsx
 
-Compile and run the demo file
+Compile and run the test file
 
-    tsx demo.ts
+    tsx test.ts
 
 ## Considerations
 
@@ -24,4 +24,5 @@ Parsing
 
 - Keep track of the last token that could be processed, because this tells you where the syntax error occurred
 - Check for extra whitespace at a single location. Checking it everywhere it can occur makes is easy to forget a spot
-- consider trailing whitespace
+- Consider trailing whitespace
+- Write unit tests before and while developing the parser, to ensure it keeps working as expected
