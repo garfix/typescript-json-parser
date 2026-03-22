@@ -2,10 +2,22 @@ import { parseJson } from "./json_parser";
 
 function expect(actual: any, expected: any): void {
     if (JSON.stringify(actual) !== JSON.stringify(expected)) {
-        console.log("Expected", expected);
-        console.log("Actual", actual);
+        console.log("Expected: ", expected);
+        console.log("Actual:   ", actual);
         console.log();
     }
+}
+
+function expectError(actual: any, expected: any): void {
+    let exc;
+    try {
+        parseJson(actual);
+    } catch (e) {
+        if (e instanceof Error) {
+            exc = e.message;
+        }
+    }
+    expect(exc, expected);
 }
 
 expect(parseJson("null"), null);
@@ -26,15 +38,7 @@ const compound2 =
 const compound3 =
     '{\n"name": "Patrick",\n"addresses":\n[\n{"type": "billing", "street": "Kerkstraat", "number": 1},\n{"type", "street": "Muntweg", "number": 8}]}';
 
-let exc = "";
-try {
-    parseJson(compound1);
-} catch (e) {
-    if (e instanceof Error) {
-        exc = e.message;
-    }
-}
-expect(exc, "Unexpected character ';' at 6:51");
+const compound4 = '{\n"name": "Patrick",\n"addresses":\n[\n{"type": "billing"';
 
 expect(parseJson(compound2), {
     name: "Patrick",
@@ -44,12 +48,5 @@ expect(parseJson(compound2), {
     ],
 });
 
-let exc2 = "";
-try {
-    parseJson(compound3);
-} catch (e) {
-    if (e instanceof SyntaxError) {
-        exc2 = e.message;
-    }
-}
-expect(exc2, "Syntax error at 6:8");
+expectError(compound1, "Unexpected character ';' at 6:51");
+expectError(compound3, "Syntax error at 6:8");

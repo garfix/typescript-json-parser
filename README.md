@@ -1,6 +1,8 @@
 ## Introduction
 
-A JSON parser, written in Typescript. Meant as an example of how to write a parser for a formal language.
+A JSON parser, written in Typescript.
+
+The code is meant as an example of how to write a parser for a formal language, including error handling.
 
 ## How to run the file
 
