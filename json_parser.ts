@@ -63,7 +63,10 @@ const regex = createRegEx([
 ]);
 
 export function parseJson(json_string: string) {
-    const tokens = tokenize(json_string.trimEnd(), regex);
+    // avoid the need to check for trailing whitespace when the parse is complete
+    const endTimmed = json_string.trimEnd();
+
+    const tokens = tokenize(endTimmed, regex);
 
     const [value, newPos, ok] = parseValue(tokens, 0);
     if (!ok) {

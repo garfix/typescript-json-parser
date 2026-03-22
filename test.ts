@@ -9,7 +9,9 @@ expect(parseJson("-1.5E-3"), -0.0015);
 expect(parseJson('"Title"'), "Title");
 expect(parseJson('"Patrick\'s\\n \\"overwinning\\""'), 'Patrick\'s\n "overwinning"');
 expect(parseJson("[]"), []);
+expect(parseJson("[[[]]]"), [[[]]]);
 expect(parseJson("{}"), {});
+expect(parseJson('{"a": {"b": {"c": [{"d": true}]}}}'), { a: { b: { c: [{ d: true }] } } });
 expect(parseJson('{"name": "Patrick", "age": 56, "married": true, "CoC-code": null}'), {
     name: "Patrick",
     age: 56,
