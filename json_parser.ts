@@ -55,8 +55,8 @@ const regex = createRegEx([
     { type: "SQUARED_CLOSE", pattern: /\]/ },
     { type: "COLON", pattern: /:/ },
     { type: "COMMA", pattern: /,/ },
-    { type: "STRING", pattern: /"(?:[^"\\]|\\.)*"/ },
-    { type: "NUMBER", pattern: /\d+(?:\.\d+)?/ },
+    { type: "STRING", pattern: /"(?:[^"\\]|\\["\\\/bfnrt]|\\u[0-9a-fA-F]{4})*"/ },
+    { type: "NUMBER", pattern: /-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/ },
     { type: "TRUE", pattern: /true/ },
     { type: "FALSE", pattern: /false/ },
     { type: "NULL", pattern: /null/ },
@@ -70,6 +70,8 @@ export function parseJson(json_string: string) {
         if (newPos < tokens.length) {
             const token = tokens[newPos];
             throw new SyntaxError(`Syntax error at ${token.line}:${token.col - 1}`);
+        } else {
+            throw new SyntaxError(`Missing structure at end of input`);
         }
     }
     return value;
@@ -193,22 +195,49 @@ function parseArray(tokens: Token[], pos: number): [anyType[], number, boolean] 
     }
 }
 
-function getStringValue(string: string) {
-    return string.slice(1, -1).replaceAll('\\"', '"');
+function getStringValue(raw: string) {
+    // strip surrounding quotes
+    const s = raw.slice(1, -1);
+
+    return s.replace(/\\(["\\\/bfnrt])|\\u([0-9a-fA-F]{4})/g, (_, esc, hex) => {
+        if (hex) return String.fromCharCode(parseInt(hex, 16));
+        switch (esc) {
+            case '"':
+                return '"';
+            case "\\":
+                return "\\";
+            case "/":
+                return "/";
+            case "b":
+                return "\b";
+            case "f":
+                return "\f";
+            case "n":
+                return "\n";
+            case "r":
+                return "\r";
+            case "t":
+                return "\t";
+            default:
+                return esc; // unreachable given the regex, but satisfies TS
+        }
+    });
 }
 
 function parseToken(tokens: Token[], pos: number): [Token, number, boolean] {
+    const newPos = pos + 1;
+
     // out of tokens?
     if (pos >= tokens.length) {
         // return a dummy token
-        return [{ type: "", value: "", line: 0, col: 0 }, pos + 1, false];
+        return [{ type: "", value: "", line: 0, col: 0 }, newPos, false];
     }
 
     // always just skip whitespace
     const token = tokens[pos];
     if (token.type === "WHITESPACE") {
-        return parseToken(tokens, pos + 1);
+        return parseToken(tokens, newPos);
     }
 
-    return [token, pos + 1, true];
+    return [token, newPos, true];
 }

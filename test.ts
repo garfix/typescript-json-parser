@@ -1,33 +1,22 @@
+import { expect, expectError } from "./helper";
 import { parseJson } from "./json_parser";
-
-function expect(actual: any, expected: any): void {
-    if (JSON.stringify(actual) !== JSON.stringify(expected)) {
-        console.log("Expected: ", expected);
-        console.log("Actual:   ", actual);
-        console.log();
-    }
-}
-
-function expectError(actual: any, expected: any): void {
-    let exc;
-    try {
-        parseJson(actual);
-    } catch (e) {
-        if (e instanceof Error) {
-            exc = e.message;
-        }
-    }
-    expect(exc, expected);
-}
 
 expect(parseJson("null"), null);
 expect(parseJson("false"), false);
 expect(parseJson("true"), true);
 expect(parseJson("12.5"), 12.5);
+expect(parseJson("-1.5E-3"), -0.0015);
 expect(parseJson('"Title"'), "Title");
-expect(parseJson('"Patrick\'s \\"overwinning\\""'), 'Patrick\'s "overwinning"');
+expect(parseJson('"Patrick\'s\\n \\"overwinning\\""'), 'Patrick\'s\n "overwinning"');
 expect(parseJson("[]"), []);
 expect(parseJson("{}"), {});
+expect(parseJson('{"name": "Patrick", "age": 56, "married": true, "CoC-code": null}'), {
+    name: "Patrick",
+    age: 56,
+    married: true,
+    "CoC-code": null,
+});
+expect(parseJson('[1, "2", null, false, 3]'), [1, "2", null, false, 3]);
 
 const compound1 =
     '{\n"name": "Patrick",\n"addresses":\n[\n{"type": "billing", "street": "Kerkstraat", "number": 1},\n{"type": "shipping", "street": "Muntweg", "number"; 8}]}';
@@ -50,3 +39,4 @@ expect(parseJson(compound2), {
 
 expectError(compound1, "Unexpected character ';' at 6:51");
 expectError(compound3, "Syntax error at 6:8");
+expectError(compound4, "Missing structure at end of input");

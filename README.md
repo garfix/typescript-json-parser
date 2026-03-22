@@ -14,19 +14,34 @@ Compile and run the test file
 
     tsx test.ts
 
-## Considerations
+## Language structure
 
 For a visual display of the structure of JSON see Douglas Crockford's [website on JSON](https://www.json.org/)
 
-Tokenization
+## Tokenization
 
+- Before parsing, split the input into tokens
 - The order of the token types is relevant, as they are concatenated into a regular expression.
 
-Parsing
+Each token holds the following fields:
 
-- Keep track of the last token that could be processed, because this tells you where the syntax error occurred
-- Check for extra whitespace at a single location. Checking it everywhere it can occur makes is easy to forget a spot
-- Consider trailing whitespace
+- an identifier
+- the source text
+- the line number in the source text
+- the column of the start within the line
+
+## Whitespace
+
+For a language, like JSON that allows whitespace between any two tokens, it's a good idea to skip whitespace whenever the next token is requested. You won't need to check the whitespace everywhere.
+
+## Error reporting
+
+Each parse function returns a `newPos`, which holds the index of the last token that was tried, whether successfully or not. When multiple language structures are tried in the same function, return the highest `newPos` that was found. This is needed to provide a proper error message.
+
+Each parse function returns `ok` to signal that the parse of the structure succeeded. In a language
+
+When the parse is finished, `newPos` should be the same as the number of tokens.
+
 - Write unit tests before and while developing the parser, to ensure it keeps working as expected
 - Use early returns
 
