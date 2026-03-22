@@ -69,7 +69,7 @@ export function parseJson(json_string: string) {
     if (!ok) {
         if (newPos < tokens.length) {
             const token = tokens[newPos];
-            throw new SyntaxError(`Unexpected character at ${token.line}:${token.col}`);
+            throw new SyntaxError(`Syntax error at ${token.line}:${token.col - 1}`);
         }
     }
     return value;
@@ -79,29 +79,29 @@ function parseValue(tokens: Token[], pos: number): [anyType, number, boolean] {
     let value: anyType;
     let ok;
 
-    let [token, newPos] = parseToken(tokens, pos);
+    let [token, newPos1] = parseToken(tokens, pos);
     if (token.type === "TRUE") {
-        return [true, newPos, true];
+        return [true, newPos1, true];
     } else if (token.type === "FALSE") {
-        return [false, newPos, true];
+        return [false, newPos1, true];
     } else if (token.type === "NULL") {
-        return [null, newPos, true];
+        return [null, newPos1, true];
     } else if (token.type === "STRING") {
-        return [getStringValue(token.value), newPos, true];
+        return [getStringValue(token.value), newPos1, true];
     } else if (token.type === "NUMBER") {
-        return [parseFloat(token.value), newPos, true];
+        return [parseFloat(token.value), newPos1, true];
     } else {
-        [value, newPos, ok] = parseArray(tokens, pos);
+        let newPos2, newPos3;
+        [value, newPos2, ok] = parseArray(tokens, pos);
         if (ok) {
-            return [value, newPos, true];
+            return [value, newPos2, true];
         }
-        [value, newPos, ok] = parseObject(tokens, pos);
+        [value, newPos3, ok] = parseObject(tokens, pos);
         if (ok) {
-            return [value, newPos, true];
+            return [value, newPos3, true];
         }
+        return [null, Math.max(newPos2, newPos3), false];
     }
-
-    return [null, pos, false];
 }
 
 function parseObject(tokens: Token[], pos: number): [Record<string, anyType>, number, boolean] {
@@ -113,7 +113,7 @@ function parseObject(tokens: Token[], pos: number): [Record<string, anyType>, nu
     // {
     let [token, newPos] = parseToken(tokens, pos);
     if (token.type !== "CURLY_OPEN") {
-        return [object, pos, false];
+        return [object, newPos, false];
     }
     pos = newPos;
 
@@ -127,7 +127,7 @@ function parseObject(tokens: Token[], pos: number): [Record<string, anyType>, nu
         // comma between entries (uses same token)
         else if (Object.keys(object).length > 0) {
             if (token.type !== "COMMA") {
-                return [object, pos, false];
+                return [object, newPos, false];
             }
             pos = newPos;
         }
@@ -135,7 +135,7 @@ function parseObject(tokens: Token[], pos: number): [Record<string, anyType>, nu
         // key must be a string
         [token, newPos] = parseToken(tokens, pos);
         if (token.type !== "STRING") {
-            return [object, pos, false];
+            return [object, newPos, false];
         }
         const key: string = getStringValue(token.value);
         pos = newPos;
@@ -143,14 +143,14 @@ function parseObject(tokens: Token[], pos: number): [Record<string, anyType>, nu
         // colon
         [token, newPos] = parseToken(tokens, pos);
         if (token.type !== "COLON") {
-            return [object, pos, false];
+            return [object, newPos, false];
         }
         pos = newPos;
 
         // value
         [value, newPos, ok] = parseValue(tokens, pos);
         if (!ok) {
-            return [object, pos, false];
+            return [object, newPos, false];
         }
         object[key] = value;
         pos = newPos;
@@ -165,7 +165,7 @@ function parseArray(tokens: Token[], pos: number): [anyType[], number, boolean] 
     // [
     let [token, newPos] = parseToken(tokens, pos);
     if (token.type !== "SQUARED_OPEN") {
-        return [array, pos, false];
+        return [array, newPos, false];
     }
     pos = newPos;
 
@@ -179,14 +179,14 @@ function parseArray(tokens: Token[], pos: number): [anyType[], number, boolean] 
         // comma check happens after first element (uses same token)
         if (array.length > 0) {
             if (token.type !== "COMMA") {
-                return [array, pos, false];
+                return [array, newPos, false];
             }
             pos = newPos;
         }
 
         [value, newPos, ok] = parseValue(tokens, pos);
         if (!ok) {
-            return [array, pos, false];
+            return [array, newPos, false];
         }
         array.push(value);
         pos = newPos;
@@ -201,7 +201,7 @@ function parseToken(tokens: Token[], pos: number): [Token, number, boolean] {
     // out of tokens?
     if (pos >= tokens.length) {
         // return a dummy token
-        return [{ type: "", value: "", line: 0, col: 0 }, pos, false];
+        return [{ type: "", value: "", line: 0, col: 0 }, pos + 1, false];
     }
 
     // always just skip whitespace

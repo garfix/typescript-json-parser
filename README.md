@@ -30,5 +30,5 @@ Parsing
 
 ## Todo
 
-- create good error messages
 - describe the main way of doing things, and stick to it
+- full JSON coverage

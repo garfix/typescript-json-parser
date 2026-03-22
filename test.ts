@@ -24,7 +24,7 @@ const compound2 =
     '{\n"name": "Patrick",\n"addresses":\n[\n{"type": "billing", "street": "Kerkstraat", "number": 1},\n{"type": "shipping", "street": "Muntweg", "number": 8}]}';
 
 const compound3 =
-    '{\n"name": "Patrick",\n"addresses":\n[\n{"type": "billing", "street": "Kerkstraat", "number": 1},\n{"type": "shipping", "street": "Muntweg", "number"}]}';
+    '{\n"name": "Patrick",\n"addresses":\n[\n{"type": "billing", "street": "Kerkstraat", "number": 1},\n{"type", "street": "Muntweg", "number": 8}]}';
 
 let exc = "";
 try {
@@ -48,8 +48,8 @@ let exc2 = "";
 try {
     parseJson(compound3);
 } catch (e) {
-    if (e instanceof Error) {
+    if (e instanceof SyntaxError) {
         exc2 = e.message;
     }
 }
-expect(exc2, "Unexpected character at 6:51");
+expect(exc2, "Syntax error at 6:8");
